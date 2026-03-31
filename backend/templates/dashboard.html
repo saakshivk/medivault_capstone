@@ -1,0 +1,210 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Dashboard</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+<body class="dashboard-page">
+    <aside class="sidebar"><nav class="sidebar-nav">
+        <a class="nav-item active" href="dashboard.html"><span class="nav-icon" aria-hidden="true">&#127973;</span><span>Dashboard</span></a>
+        <a class="nav-item" href="records.html"><span class="nav-icon" aria-hidden="true">&#128450;</span><span>My Records</span></a>
+        <a class="nav-item" href="upload.html"><span class="nav-icon" aria-hidden="true">&#11014;</span><span>Upload Report</span></a>
+        <a class="nav-item" href="health-info.html"><span class="nav-icon" aria-hidden="true">&#129658;</span><span>Important health info</span></a>
+        <a class="nav-item" href="tablets.html"><span class="nav-icon" aria-hidden="true">&#128138;</span><span>Tablet record</span></a>
+        <a class="nav-item" href="appointments.html"><span class="nav-icon" aria-hidden="true">&#128467;</span><span>Appointment remainder</span></a>
+        <a class="nav-item" href="profile.html"><span class="nav-icon" aria-hidden="true">&#128100;</span><span>Profile</span></a>
+        <a class="nav-item" id="logoutBtn" href="#"><span class="nav-icon" aria-hidden="true">&#128682;</span><span>Logout</span></a>
+    </nav></aside>
+    <header class="dashboard-header">
+        <div class="logo"><span class="logo-icon">&#9670;</span><span>MediVault</span></div>
+        <div class="header-actions">
+            <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Toggle navigation" aria-expanded="true">&#9776;</button>
+            <span class="header-user"><span class="user-icon" aria-hidden="true">&#128100;</span><span id="userEmail"></span></span>
+        </div>
+    </header>
+    <main class="dashboard-main">
+        <div class="card">
+            <h1>Dashboard</h1>
+            <p class="subtle-kicker" id="patientLine"></p>
+        </div>
+
+        <div class="grid-3" style="margin-top:0.95rem;">
+            <div class="card no-anim">
+                <h3>Total records</h3>
+                <div style="display:flex; align-items:baseline; gap:0.6rem;">
+                    <div style="font-size:2rem; font-weight:950; letter-spacing:-0.02em;" id="totalFiles">0</div>
+                    <div class="muted" style="font-weight:700;">files</div>
+                </div>
+            </div>
+            <div class="card no-anim">
+                <h3>Recent uploads</h3>
+                <div style="font-weight:900; font-size:1.05rem;" id="lastUpload"></div>
+                <svg id="activitySparkline" class="chart-svg sparkline-svg" viewBox="0 0 520 96" role="img" aria-label="Recent upload trend chart"></svg>
+                <div class="muted" style="margin-top:0.55rem; font-weight:750;">Uploads in the last 7 days</div>
+            </div>
+            <div class="card no-anim">
+                <h3 style="margin-bottom:0.65rem;">Emergency status</h3>
+                <div class="alert alert--danger" id="emergencyAlert">
+                    <div class="alert-icon" aria-hidden="true" id="emergencyIcon"></div>
+                    <div>
+                        <div class="alert-title" id="emergencyStatusTitle">Not ready</div>
+                        <div class="alert-main" id="emergencyStatusText">Add emergency contact</div>
+                        <div class="alert-sub" id="emergencyStatusSub">So we can reach you quickly.</div>
+                    </div>
+                </div>
+                <div id="healthIndicators" class="health-indicators" aria-label="Health readiness indicators"></div>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top:1rem;">
+            <h2 style="margin-bottom:0.35rem;">Your modules</h2>
+            <p class="muted" style="margin-top:0.15rem;">Fast access to your health tools.</p>
+            <div class="module-grid">
+                <a class="module-tile" href="upload.html">
+                    <div class="tile-icon" aria-hidden="true">&#11014;</div>
+                    <div class="tile-label">Upload Report</div>
+                </a>
+                <a class="module-tile" href="records.html">
+                    <div class="tile-icon" aria-hidden="true">&#128450;</div>
+                    <div class="tile-label">My Records</div>
+                </a>
+                <a class="module-tile" href="health-info.html">
+                    <div class="tile-icon" aria-hidden="true">&#129658;</div>
+                    <div class="tile-label">Important Health Info</div>
+                </a>
+                <a class="module-tile" href="tablets.html">
+                    <div class="tile-icon" aria-hidden="true">&#128138;</div>
+                    <div class="tile-label">Tablet Record</div>
+                </a>
+                <a class="module-tile" href="appointments.html">
+                    <div class="tile-icon" aria-hidden="true">&#128467;</div>
+                    <div class="tile-label">Appointment Reminder</div>
+                </a>
+                <a class="module-tile" href="profile.html">
+                    <div class="tile-icon" aria-hidden="true">&#128100;</div>
+                    <div class="tile-label">Profile</div>
+                </a>
+            </div>
+        </div>
+    </main>
+    <script src="{% static 'js/app.js' %}"></script>
+    <script>
+        var s = requireUser();
+        document.getElementById("userEmail").textContent = s.email;
+        document.getElementById("logoutBtn").addEventListener("click", function (e) { e.preventDefault(); logout(); });
+        var profiles = load(STORE.PROFILES, {});
+        var p = profiles[s.email] || { fullname: s.fullname || "", patientId: patientId(s.email) };
+        profiles[s.email] = p; save(STORE.PROFILES, profiles);
+        document.getElementById("patientLine").textContent = "Patient Name + ID: " + (p.fullname || "") + " / " + p.patientId;
+        var recordsMap = load(STORE.RECORDS, {});
+        var arr = recordsMap[s.email] || [];
+        arr.sort(function (a, b) { return (b.uploadedAt || "").localeCompare(a.uploadedAt || ""); });
+        document.getElementById("totalFiles").textContent = String(arr.length);
+        document.getElementById("lastUpload").textContent = arr.length ? fmtDate(arr[0].uploadedAt) : "";
+
+        // Emergency readiness is derived from saved health info (UI-only; no backend changes).
+        var healthMap = load(STORE.HEALTH, {});
+        var h = healthMap[s.email] || {};
+        var emergency = (h.emergency || "").trim();
+
+        var emergencyAlert = document.getElementById("emergencyAlert");
+        var emergencyIcon = document.getElementById("emergencyIcon");
+        var emergencyStatusTitle = document.getElementById("emergencyStatusTitle");
+        var emergencyStatusText = document.getElementById("emergencyStatusText");
+        var emergencyStatusSub = document.getElementById("emergencyStatusSub");
+
+        emergencyAlert.classList.remove("alert--success", "alert--warning", "alert--danger");
+        if (!emergency) {
+            emergencyAlert.classList.add("alert--danger");
+            emergencyIcon.textContent = "\u{1F6A8}";
+            emergencyStatusTitle.textContent = "Not ready";
+            emergencyStatusText.textContent = "Add emergency contact";
+            emergencyStatusSub.textContent = "So we can reach you quickly.";
+        } else if (!isValidPhone10(emergency)) {
+            emergencyAlert.classList.add("alert--warning");
+            emergencyIcon.textContent = "\u26A0";
+            emergencyStatusTitle.textContent = "Needs review";
+            emergencyStatusText.textContent = "Emergency contact looks invalid";
+            emergencyStatusSub.textContent = "Please update it to exactly 10 digits.";
+        } else {
+            emergencyAlert.classList.add("alert--success");
+            emergencyIcon.textContent = "\u2705";
+            emergencyStatusTitle.textContent = "Ready";
+            emergencyStatusText.textContent = "Emergency contact saved";
+            emergencyStatusSub.textContent = "You are set for quick outreach.";
+        }
+
+        // Render small visualizations (SVG only, lightweight JS).
+        var activitySvg = document.getElementById("activitySparkline");
+        var recentCounts = [];
+        var now = new Date();
+        var buckets = 7;
+        for (var bi = 0; bi < buckets; bi++) {
+            recentCounts.push({ label: "", count: 0 });
+        }
+
+        function dayKey(d) {
+            return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+        }
+        function addToBucket(iso) {
+            var dt = new Date(iso);
+            if (!dt || isNaN(dt.getTime())) return;
+            var k = dayKey(dt);
+            var idx = Math.floor((new Date(dayKey(now)).getTime() - new Date(k).getTime()) / 86400000);
+            // idx=0 => today, idx=6 => 6 days ago; reverse to array order.
+            var pos = (buckets - 1) - idx;
+            if (pos >= 0 && pos < buckets) recentCounts[pos].count++;
+        }
+
+        for (var ii = 0; ii < buckets; ii++) {
+            var d = new Date(now);
+            d.setDate(d.getDate() - (buckets - 1 - ii));
+            recentCounts[ii].label = d.toLocaleDateString(undefined, { weekday: "short" });
+        }
+        arr.forEach(function (r) { addToBucket(r.uploadedAt); });
+
+        // Build sparkline polyline for the last 7 days.
+        var maxCount = Math.max(1, recentCounts.reduce(function (m, x) { return Math.max(m, x.count); }, 0));
+        var w = 520, h = 96, padX = 22, padY = 16;
+        var chartW = w - padX * 2;
+        var chartH = h - padY * 2;
+        var step = chartW / (buckets - 1);
+        var points = recentCounts.map(function (x, i) {
+            var barX = padX + step * i;
+            var barY = padY + chartH * (1 - (x.count / maxCount));
+            return barX + "," + barY;
+        }).join(" ");
+
+        activitySvg.innerHTML =
+            "<polyline fill='none' stroke='rgba(16,184,166,0.95)' stroke-width='3' stroke-linecap='round' stroke-linejoin='round' points='" + points + "'/>" +
+            recentCounts.map(function (x, i) {
+                var px = padX + step * i;
+                var py = padY + chartH * (1 - (x.count / maxCount));
+                return "<circle cx='" + px + "' cy='" + py + "' r='4' fill='rgba(16,184,166,0.95)' />";
+            }).join("") +
+            "<line x1='" + padX + "' y1='" + (padY + chartH) + "' x2='" + (padX + chartW) + "' y2='" + (padY + chartH) + "' stroke='rgba(64,140,194,0.25)' stroke-width='1' />";
+
+        // Health readiness indicator chips.
+        var healthIndicators = document.getElementById("healthIndicators");
+        var healthMap = load(STORE.HEALTH, {});
+        var hh = healthMap[s.email] || {};
+        function on(v) {
+            return v && String(v).trim().length > 0;
+        }
+        var items = [
+            { label: "Blood group", ok: on(hh.bloodGroup) },
+            { label: "Allergies", ok: on(hh.allergies) },
+            { label: "Chronic", ok: on(hh.chronic) },
+            { label: "Medication", ok: on(hh.medication) },
+            { label: "Emergency", ok: !!(on(hh.emergency) && isValidPhone10(hh.emergency)) }
+        ];
+        healthIndicators.innerHTML = items.map(function (it) {
+            return "<span class='health-indicator" + (it.ok ? " is-on" : "") + "'>" + (it.ok ? "\u2705" : "\u2796") + it.label + "</span>";
+        }).join("");
+    </script>
+</body>
+</html>
+

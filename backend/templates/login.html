@@ -1,0 +1,103 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediVault Login</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+<body class="auth-page">
+    <div class="auth-box auth-box--elevated">
+        <div class="logo"><span class="logo-icon">&#9670;</span><span>MediVault</span></div>
+        <h2 style="margin-top:0.7rem;">Sign In</h2>
+        <p class="muted">Access your secure health dashboard.</p>
+        <form id="login-form">
+            <div style="margin-top:0.8rem;">
+                <label for="email">Email Address</label>
+                <input id="email" type="email" required>
+            </div>
+            <div style="margin-top:0.8rem;">
+                <label for="name">Full Name</label>
+                <input id="name" type="text" required pattern="[A-Za-z ]+" title="Use alphabets and spaces only">
+            </div>
+            <div style="margin-top:0.8rem;">
+                <label for="age">Age</label>
+                <input id="age" type="number" min="1" max="120" required placeholder="Enter age">
+            </div>
+            <div style="margin-top:0.8rem;">
+                <label for="password">Password</label>
+                <div class="input-with-action">
+                    <input id="password" type="password" autocomplete="current-password" placeholder="Enter password (up to 6 digits)" inputmode="numeric" maxlength="6" pattern="\d{1,6}" title="Password must be only digits, max 6">
+                    <button id="togglePassword" type="button" class="input-action-btn" aria-label="Show password">&#128065;</button>
+                </div>
+            </div>
+            <button class="btn btn-primary" style="margin-top:0.9rem; width:100%;" type="submit">Login as User</button>
+        </form>
+        <div class="top-links">
+            <a class="btn" href="register.html">Sign Up</a>
+            <a class="btn" href="admin.html">Admin Portal</a>
+            <a class="btn" href="index.html">Back to Landing</a>
+        </div>
+        <p id="msg" class="muted" style="margin-top:0.8rem;"></p>
+    </div>
+    <script src="{% static 'js/app.js' %}"></script>
+    <script>
+        var passEl = document.getElementById("password");
+        var nameEl = document.getElementById("name");
+        var ageEl = document.getElementById("age");
+        var toggleEl = document.getElementById("togglePassword");
+        nameEl.addEventListener("input", function () {
+            nameEl.value = nameEl.value.replace(/[^A-Za-z\s]/g, "");
+        });
+        passEl.addEventListener("input", function () {
+            passEl.value = normalizePasswordToSixDigits(passEl.value);
+        });
+        toggleEl.addEventListener("click", function () {
+            var masked = passEl.type === "password";
+            passEl.type = masked ? "text" : "password";
+            toggleEl.textContent = "\u{1F441}";
+            toggleEl.setAttribute("aria-label", masked ? "Hide password" : "Show password");
+        });
+        toggleEl.textContent = "\u{1F441}";
+        toggleEl.setAttribute("aria-label", "Show password");
+
+        document.getElementById("login-form").addEventListener("submit", function (e) {
+            e.preventDefault();
+            var email = document.getElementById("email").value.trim();
+            var name = nameEl.value.trim();
+            var ageRaw = String(ageEl.value || "").trim();
+            var password = passEl.value.trim();
+            var msgEl = document.getElementById("msg");
+            if (!email || !name) { msgEl.textContent = "Name and email are required."; return; }
+            if (!isStrictAlphabeticName(name)) { msgEl.textContent = "Name must contain only alphabets and spaces."; return; }
+            if (!isValidGmail(email)) { msgEl.textContent = "Use email ending with @gmail.com, @yahoo.com, or @icloud.com."; return; }
+            if (!ageRaw || !isValidAge(ageRaw)) { msgEl.textContent = "Age must be a valid number between 1 and 120."; return; }
+            if (!password) { msgEl.textContent = "Password is required."; return; }
+            if (!isValidSixDigitPassword(password)) { msgEl.textContent = "Password must be digits only, up to 6 digits."; return; }
+            var emailKey = normalizeEmail(email);
+            var users = load(STORE.USERS, []);
+            var idx = users.findIndex(function (u) { return normalizeEmail(u.email) === emailKey; });
+            if (idx < 0) { msgEl.textContent = "Account not found. Please Sign Up."; return; }
+            var storedPassword = users[idx].password;
+            if (storedPassword === undefined || storedPassword === null || storedPassword === "") {
+                msgEl.textContent = "This account has no password set. Please register again.";
+                return;
+            }
+            if (storedPassword !== password) { msgEl.textContent = "Incorrect password."; return; }
+
+            users[idx].fullname = name;
+            users[idx].age = Number(ageRaw);
+            save(STORE.USERS, users);
+            var profiles = load(STORE.PROFILES, {});
+            if (!profiles[emailKey]) profiles[emailKey] = { patientId: patientId(emailKey), fullname: name, age: Number(ageRaw) };
+            profiles[emailKey].fullname = name;
+            profiles[emailKey].age = Number(ageRaw);
+            save(STORE.PROFILES, profiles);
+            save(STORE.SESSION, { email: emailKey, fullname: name, age: Number(ageRaw) });
+            location.href = "dashboard.html";
+        });
+    </script>
+</body>
+</html>
+

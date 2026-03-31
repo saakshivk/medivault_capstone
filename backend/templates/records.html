@@ -1,0 +1,188 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>My Records</title><link rel="stylesheet" href="{% static 'css/styles.css' %}"></head>
+<body class="dashboard-page">
+<aside class="sidebar"><nav class="sidebar-nav">
+    <a class="nav-item" href="dashboard.html"><span class="nav-icon" aria-hidden="true">&#127973;</span><span>Dashboard</span></a><a class="nav-item active" href="records.html"><span class="nav-icon" aria-hidden="true">&#128450;</span><span>My Records</span></a><a class="nav-item" href="upload.html"><span class="nav-icon" aria-hidden="true">&#11014;</span><span>Upload Report</span></a><a class="nav-item" href="health-info.html"><span class="nav-icon" aria-hidden="true">&#129658;</span><span>Important health info</span></a><a class="nav-item" href="tablets.html"><span class="nav-icon" aria-hidden="true">&#128138;</span><span>Tablet record</span></a><a class="nav-item" href="appointments.html"><span class="nav-icon" aria-hidden="true">&#128467;</span><span>Appointment remainder</span></a><a class="nav-item" href="profile.html"><span class="nav-icon" aria-hidden="true">&#128100;</span><span>Profile</span></a><a class="nav-item" href="#" id="logoutBtn"><span class="nav-icon" aria-hidden="true">&#128682;</span><span>Logout</span></a>
+</nav></aside>
+<header class="dashboard-header">
+    <div class="logo"><span class="logo-icon">&#9670;</span><span>MediVault</span></div>
+    <div class="header-actions">
+        <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Toggle navigation" aria-expanded="true">&#9776;</button>
+        <span class="header-user"><span class="user-icon" aria-hidden="true">&#128100;</span><span id="userEmail"></span></span>
+    </div>
+</header>
+<main class="dashboard-main">
+    <div class="card"><h1>My Medical Records</h1><p class="muted">Main storage area for files.</p>
+        <div class="grid-3" style="margin-top:0.95rem; margin-bottom:0.9rem;">
+            <div class="card no-anim">
+                <h3 style="margin-bottom:0.35rem;">Total records</h3>
+                <div style="font-size:1.9rem; font-weight:1000; letter-spacing:-0.02em;" id="recordsTotalMini">0</div>
+                <div class="muted" style="font-weight:750;">Across all categories</div>
+            </div>
+            <div class="card no-anim">
+                <h3 style="margin-bottom:0.35rem;">Last upload</h3>
+                <div style="font-size:1.05rem; font-weight:950;" id="recordsLastMini"></div>
+                <div class="muted" style="font-weight:750;">Most recent file</div>
+            </div>
+            <div class="card no-anim">
+                <h3 style="margin-bottom:0.35rem;">Recent uploads (7d)</h3>
+                <div style="font-size:1.9rem; font-weight:1000; letter-spacing:-0.02em;" id="recordsRecentMini">0</div>
+                <div class="muted" style="font-weight:750;">Last 7 days</div>
+            </div>
+        </div>
+        <div class="actions" style="margin-bottom:0.6rem;">
+            <button class="btn" data-filter="all">All Files</button>
+            <button class="btn" data-filter="Lab">Lab Reports</button>
+            <button class="btn" data-filter="Prescription">Prescriptions</button>
+            <button class="btn" data-filter="Scan">Medical Scans (X-RAY Scan, MRI Scan, CT Scan, etc)</button>
+            <button class="btn" data-filter="Discharge Summary">Discharge Summaries</button>
+            <button class="btn" data-filter="Other Files">Other Files</button>
+        </div>
+        <table><thead><tr><th>File Name</th><th>Type</th><th>Upload Date</th><th>Actions</th></tr></thead><tbody id="tbody"></tbody></table>
+        <div class="card no-anim" style="margin-top:0.8rem;">
+            <h3>File Preview</h3>
+            <div class="actions" style="margin-bottom:0.5rem;">
+                <button id="closePreviewBtn" class="btn">Close Preview</button>
+            </div>
+            <div id="previewBox" class="muted">Click View to preview file here.</div>
+        </div>
+    </div>
+</main>
+<script src="{% static 'js/app.js' %}"></script>
+<script>
+    var s = requireUser();
+    if (document.getElementById("userEmail")) document.getElementById("userEmail").textContent = s.email;
+    var logoutBtn = document.getElementById("logoutBtn");
+    logoutBtn.onclick = function (e) { e.preventDefault(); logout(); };
+    var map = load(STORE.RECORDS, {});
+    var arr = map[s.email] || [];
+    arr.sort(function (a, b) { return (b.uploadedAt || "").localeCompare(a.uploadedAt || ""); });
+    var tb = document.getElementById("tbody");
+    var previewBox = document.getElementById("previewBox");
+    var closePreviewBtn = document.getElementById("closePreviewBtn");
+    var activeFilter = "all";
+    // Map record categories to styled badge variants.
+    function badgeClassForType(t) {
+        var v = (t || "Lab");
+        if (v === "Lab") return "badge badge--lab";
+        if (v === "Prescription") return "badge badge--prescription";
+        if (v === "Scan") return "badge badge--scan";
+        if (v === "Discharge Summary") return "badge badge--discharge";
+        return "badge badge--other";
+    }
+    function iconForType(t) {
+        var v = t || "Lab";
+        if (v === "Lab") return "\u{1F9EA}";
+        if (v === "Prescription") return "\u{1F48A}";
+        if (v === "Scan") return "\u{1F5BC}";
+        if (v === "Discharge Summary") return "\u{1F3E5}";
+        return "\u{1F4C4}";
+    }
+    function titleForType(t) {
+        var v = t || "Lab";
+        if (v === "Lab") return "Lab Reports";
+        if (v === "Prescription") return "Prescriptions";
+        if (v === "Scan") return "Medical Scans (X-RAY Scan, MRI Scan, CT Scan, etc)";
+        if (v === "Discharge Summary") return "Discharge Summaries";
+        if (v === "Other Files") return "Other Files";
+        return v;
+    }
+
+    // Normalize legacy upload values (old UI stored option text instead of stable category keys).
+    function normalizeFileType(t) {
+        var v = (t || "").toString().trim();
+        if (!v) return "Lab";
+        if (v === "Lab" || v === "Lab Report" || v === "Lab Reports") return "Lab";
+        if (v === "Prescription" || v === "Prescriptions") return "Prescription";
+        if (v === "Scan" || v === "Medical Scan" || v === "Medical Scans (X-RAY Scan, MRI Scan, CT Scan, etc)") return "Scan";
+        if (v === "Discharge Summary" || v === "Discharge Summaries" || v === "discharge summaries") return "Discharge Summary";
+        if (v === "Other Files" || v === "Other File" || v === "Other Medical Files" || v === "other files" || v === "Other Medical File") return "Other Files";
+        return v;
+    }
+    function showPreview(r) {
+        if (!r.dataUrl) {
+            previewBox.textContent = "Preview not available for this old record. Re-upload once.";
+            return;
+        }
+        var ext = ((r.filename || "").split(".").pop() || "").toLowerCase();
+        var isImage = /^(jpg|jpeg|png|gif|webp)$/i.test(ext);
+        var isVideo = /^(mp4|webm|ogg)$/i.test(ext);
+        if (isImage) {
+            previewBox.innerHTML = "<img class='preview-media' src='" + r.dataUrl + "' alt='preview'>";
+            return;
+        }
+        if (isVideo) {
+            previewBox.innerHTML = "<video class='preview-media' controls><source src='" + r.dataUrl + "'></video>";
+            return;
+        }
+        previewBox.innerHTML = "<iframe class='preview-frame' src='" + r.dataUrl + "' title='file preview'></iframe>";
+    }
+    function render() {
+        tb.innerHTML = "";
+        var filtered = arr.filter(function (r) {
+            var typeKey = normalizeFileType(r.fileType || "Lab");
+            return activeFilter === "all" ? true : typeKey === activeFilter;
+        });
+        if (!filtered.length) { tb.innerHTML = "<tr><td colspan='4' class='muted'>No files found for selected category.</td></tr>"; return; }
+
+        var ordered = ["Lab", "Prescription", "Scan", "Discharge Summary", "Other Files"];
+        var groups = {};
+        filtered.forEach(function (r) {
+            var t = normalizeFileType(r.fileType || "Lab");
+            groups[t] = groups[t] || [];
+            groups[t].push(r);
+        });
+
+        function renderRecord(r) {
+            var tr = document.createElement("tr");
+            var typeLabel = normalizeFileType(r.fileType || "Lab");
+            var icon = iconForType(typeLabel);
+            tr.innerHTML =
+                "<td>" + (r.filename || "") + "</td>" +
+                "<td><span class='" + badgeClassForType(typeLabel) + "'><span aria-hidden='true' style='margin-right:0.35rem;'>" + icon + "</span>" + titleForType(typeLabel) + "</span></td>" +
+                "<td>" + fmtDate(r.uploadedAt) + "</td>";
+            var td = document.createElement("td"); var c = document.createElement("div"); c.className = "actions";
+            var v = document.createElement("button"); v.className = "btn"; v.textContent = "View"; v.type = "button"; v.setAttribute("aria-label", "View " + (r.filename || "file"));
+            v.onclick = function () { showPreview(r); };
+            var d = document.createElement("a"); d.className = "btn"; d.textContent = "Download"; d.href = r.dataUrl || "#"; d.download = r.filename || "file"; d.setAttribute("aria-label", "Download " + (r.filename || "file"));
+            var x = document.createElement("button"); x.className = "btn btn-danger"; x.textContent = "Delete"; x.onclick = function () { arr = arr.filter(function (q) { return q.id !== r.id; }); map[s.email] = arr; save(STORE.RECORDS, map); render(); };
+            c.appendChild(v); c.appendChild(d); c.appendChild(x); td.appendChild(c); tr.appendChild(td); tb.appendChild(tr);
+        }
+
+        if (activeFilter === "all") {
+            ordered.forEach(function (t) {
+                if (!groups[t] || !groups[t].length) return;
+                var sep = document.createElement("tr");
+                sep.className = "category-sep";
+                sep.innerHTML = "<td colspan='4'><div class='subtle-kicker' style='display:flex; align-items:center; gap:0.6rem;'>" + iconForType(t) + " " + titleForType(t) + " </div></td>";
+                tb.appendChild(sep);
+                groups[t].forEach(function (r) { renderRecord(r); });
+            });
+        } else {
+            filtered.forEach(function (r) { renderRecord(r); });
+        }
+    }
+    Array.prototype.forEach.call(document.querySelectorAll("[data-filter]"), function (btn) {
+        btn.addEventListener("click", function () { activeFilter = btn.getAttribute("data-filter"); render(); });
+    });
+    closePreviewBtn.addEventListener("click", function () {
+        previewBox.textContent = "Click View to preview file here.";
+    });
+
+    // Mini stats at the top.
+    var recordsTotalMini = document.getElementById("recordsTotalMini");
+    var recordsLastMini = document.getElementById("recordsLastMini");
+    var recordsRecentMini = document.getElementById("recordsRecentMini");
+    if (recordsTotalMini) recordsTotalMini.textContent = String(arr.length);
+    if (recordsLastMini) recordsLastMini.textContent = arr.length ? fmtDate(arr[0].uploadedAt) : "";
+    if (recordsRecentMini) {
+        var cutoff = Date.now() - 7 * 86400000;
+        var recentCount = arr.filter(function (r) { return (new Date(r.uploadedAt || 0).getTime()) >= cutoff; }).length;
+        recordsRecentMini.textContent = String(recentCount);
+    }
+    render();
+</script>
+</body></html>
+

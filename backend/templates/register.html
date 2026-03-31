@@ -1,0 +1,85 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+<body class="auth-page">
+    <div class="auth-box auth-box--elevated">
+        <div class="logo"><span class="logo-icon">&#9670;</span><span>MediVault</span></div>
+        <h2 style="margin-top:0.7rem;">Create Account</h2>
+        <form id="register-form">
+            <label>Full Name</label><input id="fullname" required pattern="[A-Za-z ]+" title="Use alphabets and spaces only">
+            <label style="margin-top:0.6rem;">Email Address</label><input id="email" type="email" required>
+            <label style="margin-top:0.6rem;">Password (up to 6 digits)</label>
+            <div class="input-with-action">
+                <input id="password" type="password" autocomplete="new-password" placeholder="Create password" inputmode="numeric" maxlength="6" pattern="\d{1,6}" title="Password must be only digits, max 6">
+                <button id="togglePassword" type="button" class="input-action-btn" aria-label="Show password">&#128065;</button>
+            </div>
+            <p id="password-rule" class="muted" style="margin:0.4rem 0 0;">Use only digits (0-9), maximum 6 digits.</p>
+            <button class="btn btn-primary" type="submit" style="margin-top:0.9rem; width:100%;">Sign Up</button>
+        </form>
+        <div class="top-links">
+            <a class="btn" href="login.html">Back to Login</a>
+        </div>
+        <p class="muted" id="register-msg" style="margin-top:0.7rem;"></p>
+    </div>
+    <script src="{% static 'js/app.js' %}"></script>
+    <script>
+        var passEl = document.getElementById("password");
+        var fullnameEl = document.getElementById("fullname");
+        var toggleEl = document.getElementById("togglePassword");
+        toggleEl.addEventListener("click", function () {
+            var masked = passEl.type === "password";
+            passEl.type = masked ? "text" : "password";
+            toggleEl.textContent = "\u{1F441}";
+            toggleEl.setAttribute("aria-label", masked ? "Hide password" : "Show password");
+        });
+        toggleEl.textContent = "\u{1F441}";
+        toggleEl.setAttribute("aria-label", "Show password");
+        fullnameEl.addEventListener("input", function () {
+            fullnameEl.value = fullnameEl.value.replace(/[^A-Za-z\s]/g, "");
+        });
+        passEl.addEventListener("input", function () {
+            passEl.value = normalizePasswordToSixDigits(passEl.value);
+        });
+
+        document.getElementById("register-form").addEventListener("submit", function (e) {
+            e.preventDefault();
+            var fullname = fullnameEl.value.trim();
+            var email = document.getElementById("email").value.trim();
+            var password = passEl.value.trim();
+            var msgEl = document.getElementById("register-msg");
+            if (!document.getElementById("register-form").checkValidity()) {
+                document.getElementById("register-form").reportValidity();
+                return;
+            }
+            if (!fullname || !email) { msgEl.textContent = "Name and email are required."; return; }
+            if (!isStrictAlphabeticName(fullname)) { msgEl.textContent = "Name must contain only alphabets and spaces."; return; }
+            if (!isValidGmail(email)) { msgEl.textContent = "Use email ending with @gmail.com, @yahoo.com, or @icloud.com."; return; }
+            if (!password) { msgEl.textContent = "Password is required."; return; }
+            if (!isValidSixDigitPassword(password)) { msgEl.textContent = "Password must be digits only, up to 6 digits."; return; }
+            var normalizedEmail = normalizeEmail(email);
+            var users = load(STORE.USERS, []);
+            var idx = users.findIndex(function (u) { return normalizeEmail(u.email) === normalizedEmail; });
+            var profiles = load(STORE.PROFILES, {});
+            var profileExists = Object.prototype.hasOwnProperty.call(profiles, normalizedEmail);
+            if (idx >= 0) { msgEl.textContent = "This email is already registered."; return; }
+            if (profileExists) { msgEl.textContent = "This email is already registered."; return; }
+            var row = { fullname: fullname, email: normalizedEmail, age: 0, password: password, createdAt: new Date().toISOString() };
+            users.push(row);
+            save(STORE.USERS, users);
+            profiles[normalizedEmail] = profiles[normalizedEmail] || { patientId: patientId(normalizedEmail), fullname: fullname, age: 0 };
+            profiles[normalizedEmail].fullname = fullname;
+            profiles[normalizedEmail].age = profiles[normalizedEmail].age || 0;
+            save(STORE.PROFILES, profiles);
+            msgEl.textContent = "Registration saved. Redirecting to login...";
+            setTimeout(function(){ location.href = "login.html"; }, 250);
+        });
+    </script>
+</body>
+</html>
+

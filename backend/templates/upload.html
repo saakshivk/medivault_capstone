@@ -1,0 +1,137 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Upload Report</title><link rel="stylesheet" href="{% static 'css/styles.css' %}"></head>
+<body class="dashboard-page">
+<aside class="sidebar"><nav class="sidebar-nav">
+    <a class="nav-item" href="dashboard.html"><span class="nav-icon" aria-hidden="true">&#127973;</span><span>Dashboard</span></a><a class="nav-item" href="records.html"><span class="nav-icon" aria-hidden="true">&#128450;</span><span>My Records</span></a><a class="nav-item active" href="upload.html"><span class="nav-icon" aria-hidden="true">&#11014;</span><span>Upload Medical Report</span></a><a class="nav-item" href="health-info.html"><span class="nav-icon" aria-hidden="true">&#129658;</span><span>Important Health Information</span></a><a class="nav-item" href="tablets.html"><span class="nav-icon" aria-hidden="true">&#128138;</span><span>Tablet Records</span></a><a class="nav-item" href="appointments.html"><span class="nav-icon" aria-hidden="true">&#128467;</span><span>Appointment Reminders</span></a><a class="nav-item" href="profile.html"><span class="nav-icon" aria-hidden="true">&#128100;</span><span>Profile</span></a><a class="nav-item" href="#" id="logoutBtn"><span class="nav-icon" aria-hidden="true">&#128682;</span><span>Logout</span></a>
+</nav></aside>
+<header class="dashboard-header">
+    <div class="logo"><span class="logo-icon">&#9670;</span><span>MediVault</span></div>
+    <div class="header-actions">
+        <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Toggle navigation" aria-expanded="true">&#9776;</button>
+        <span class="header-user"><span class="user-icon" aria-hidden="true">&#128100;</span><span id="userEmail"></span></span>
+    </div>
+</header>
+<main class="dashboard-main">
+    <div class="card">
+        <h1>Upload Medical Report</h1>
+        <p class="muted">Upload your medical files securely. They are saved in <strong>My Records</strong>.</p>
+        <div class="row">
+            <div><label>File Type</label><select id="fileType">
+                <option value="Lab">Lab Reports</option>
+                <option value="Prescription">Prescriptions</option>
+                <option value="Scan">Medical Scans (X-RAY Scan, MRI Scan, CT Scan, etc)</option>
+                <option value="Discharge Summary">Discharge Summaries</option>
+                <option value="Other Files">Other Files</option>
+            </select></div>
+            <div>
+                <label>Select File</label>
+                <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Drag and drop file upload">
+                    <div style="font-weight:950; letter-spacing:-0.01em;">Drag and drop your medical file</div>
+                    <div class="dropzone-sub">or click to browse securely</div>
+                    <div class="dropzone-hint" id="selectedFileName">No file selected</div>
+                </div>
+                <input type="file" id="fileInput" accept=".pdf,image/*,video/*" style="display:none;">
+                <div class="dropzone-sub">Accepted: images, PDF, video • Max 25 MB</div>
+            </div>
+        </div>
+        <button class="btn btn-primary" id="uploadBtn" style="margin-top:0.8rem;">Upload Report</button>
+        <p id="msg" class="muted" style="margin-top:0.5rem;" aria-live="polite"></p>
+    </div>
+</main>
+<script src="{% static 'js/app.js' %}"></script>
+<script>
+    var s = requireUser();
+    if (document.getElementById("userEmail")) document.getElementById("userEmail").textContent = s.email;
+    var logoutBtn = document.getElementById("logoutBtn");
+    var uploadBtn = document.getElementById("uploadBtn");
+    var fileTypeEl = document.getElementById("fileType");
+    var fileInputEl = document.getElementById("fileInput");
+    var dropzoneEl = document.getElementById("dropzone");
+    var selectedFileNameEl = document.getElementById("selectedFileName");
+    var msgEl = document.getElementById("msg");
+    var pendingFile = null; // Ensures drag/drop works even if DataTransfer cannot set input.files
+    logoutBtn.onclick = function (e) { e.preventDefault(); logout(); };
+
+    function setSelectedFile(f) {
+        if (!f) return;
+        pendingFile = f;
+        try {
+            var dt = new DataTransfer();
+            dt.items.add(f);
+            fileInputEl.files = dt.files;
+        } catch (e) {
+            // Fallback: if DataTransfer is not supported, we still keep original file chooser behavior.
+        }
+        selectedFileNameEl.textContent = f.name || "Selected file";
+        msgEl.textContent = "";
+    }
+
+    // Drag-and-drop UI (keeps existing upload logic below).
+    ;["dragenter", "dragover"].forEach(function (ev) {
+        dropzoneEl.addEventListener(ev, function (e) {
+            e.preventDefault();
+            dropzoneEl.classList.add("dropzone--active");
+        });
+    });
+    ;["dragleave", "drop"].forEach(function (ev) {
+        dropzoneEl.addEventListener(ev, function (e) {
+            e.preventDefault();
+            dropzoneEl.classList.remove("dropzone--active");
+        });
+    });
+    dropzoneEl.addEventListener("drop", function (e) {
+        e.preventDefault();
+        var f = (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) ? e.dataTransfer.files[0] : null;
+        if (!f) { msgEl.textContent = "No file detected. Try again."; return; }
+        setSelectedFile(f);
+    });
+    dropzoneEl.addEventListener("click", function () { fileInputEl.click(); });
+    dropzoneEl.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fileInputEl.click(); }
+    });
+
+    fileInputEl.addEventListener("change", function () {
+        var f = fileInputEl.files && fileInputEl.files[0];
+        pendingFile = f || null;
+        selectedFileNameEl.textContent = f ? (f.name || "Selected file") : "No file selected";
+        msgEl.textContent = "";
+    });
+
+    uploadBtn.onclick = function () {
+        var f = pendingFile || (fileInputEl.files && fileInputEl.files[0]);
+        if (!f) { msgEl.textContent = "Please choose a file first."; return; }
+        if (f.size > 25 * 1024 * 1024) { msgEl.textContent = "File too large. Max 25 MB."; return; }
+
+        // Basic type validation (UI-only; actual upload behavior remains the same).
+        var ext = ((f.name || "").split(".").pop() || "").toLowerCase();
+        var okExt = /^(pdf|png|jpg|jpeg|gif|webp|mp4|webm|ogg)$/i.test(ext);
+        var okMime = /^image\//.test(f.type) || f.type === "application/pdf" || /^video\//.test(f.type);
+        if (!okExt && !okMime) { msgEl.textContent = "Unsupported file type. Upload an image, PDF, or video."; return; }
+
+        msgEl.textContent = "Uploading and saving...";
+        var fr = new FileReader();
+        fr.onload = function () {
+            try {
+                var map = load(STORE.RECORDS, {});
+                var key = s.email;
+                if (!key) { msgEl.textContent = "Session expired. Please login again."; return; }
+                map[key] = map[key] || [];
+                var typeKey = fileTypeEl.value || "Lab";
+                map[key].push({ id: Date.now() + "_" + Math.random().toString(36).slice(2), filename: f.name, fileType: typeKey, uploadedAt: new Date().toISOString(), dataUrl: fr.result });
+                save(STORE.RECORDS, map);
+                fileInputEl.value = "";
+                selectedFileNameEl.textContent = "No file selected";
+                pendingFile = null;
+                var afterCount = (map[key] && map[key].length) ? map[key].length : 0;
+                msgEl.textContent = "Upload success. Saved " + afterCount + " item(s) in My Records.";
+            } catch (e) {
+                msgEl.textContent = "Upload failed while saving. " + (e && e.message ? e.message : "");
+            }
+        };
+        fr.readAsDataURL(f);
+    };
+</script>
+</body></html>
+

@@ -1,0 +1,393 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Important Health Info</title><link rel="stylesheet" href="{% static 'css/styles.css' %}"></head>
+<body class="dashboard-page">
+<aside class="sidebar"><nav class="sidebar-nav">
+    <a class="nav-item" href="dashboard.html"><span class="nav-icon" aria-hidden="true">&#127973;</span><span>Dashboard</span></a><a class="nav-item" href="records.html"><span class="nav-icon" aria-hidden="true">&#128450;</span><span>My Records</span></a><a class="nav-item" href="upload.html"><span class="nav-icon" aria-hidden="true">&#11014;</span><span>Upload Report</span></a><a class="nav-item active" href="health-info.html"><span class="nav-icon" aria-hidden="true">&#129658;</span><span>Important health info</span></a><a class="nav-item" href="tablets.html"><span class="nav-icon" aria-hidden="true">&#128138;</span><span>Tablet record</span></a><a class="nav-item" href="appointments.html"><span class="nav-icon" aria-hidden="true">&#128467;</span><span>Appointment remainder</span></a><a class="nav-item" href="profile.html"><span class="nav-icon" aria-hidden="true">&#128100;</span><span>Profile</span></a><a class="nav-item" href="#" id="logoutBtn"><span class="nav-icon" aria-hidden="true">&#128682;</span><span>Logout</span></a>
+</nav></aside>
+<header class="dashboard-header">
+    <div class="logo"><span class="logo-icon">&#9670;</span><span>MediVault</span></div>
+    <div class="header-actions">
+        <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Toggle navigation" aria-expanded="true">&#9776;</button>
+        <span class="header-user"><span class="user-icon" aria-hidden="true">&#128100;</span><span id="userEmail"></span></span>
+    </div>
+</header>
+<main class="dashboard-main"><div class="card">
+    <h1>Important Health Info</h1>
+    <div class="emergency-summary">
+        <h2 style="margin: 0 0 0.6rem; font-size:1.05rem;">Emergency Health Summary</h2>
+        <div class="alert alert--danger" id="emergencyAlertInfo">
+            <div class="alert-icon" aria-hidden="true" id="emergencyIconInfo"></div>
+            <div>
+                <div class="alert-title" id="emergencyStatusTitleInfo">Not ready</div>
+                <div class="alert-main" id="emergencyStatusTextInfo">Add emergency contact</div>
+                <div class="alert-sub" id="emergencyStatusSubInfo">So we can reach you quickly.</div>
+            </div>
+        </div>
+    </div>
+    <div id="formWrap">
+    <div class="grid-2">
+        <div><label>Blood group</label><input id="bloodGroup"></div>
+        <div><label>Allergies</label><input id="allergies"></div>
+        <div><label>Chronnic disease</label><input id="chronic"></div>
+        <div><label>Current medication</label><input id="medication"></div>
+        <div><label>Blood sugar (mg/dL)</label><input id="bloodSugar" type="number" min="0" placeholder="e.g., 110"></div>
+        <div><label>BP Systolic</label><input id="bpSystolic" type="number" min="0" placeholder="e.g., 120"></div>
+        <div><label>BP Diastolic</label><input id="bpDiastolic" type="number" min="0" placeholder="e.g., 80"></div>
+    </div>
+    <label style="margin-top:0.7rem;">Any other info</label><textarea id="otherInfo"></textarea>
+    <label style="margin-top:0.7rem;">Emergency contact</label><input id="emergency">
+    <div class="actions" style="margin-top:0.8rem;">
+        <button id="saveBtn" class="btn btn-primary">Save</button>
+    </div>
+    </div>
+    <div class="viz-grid" aria-label="Vital signs visualizations">
+        <div class="card no-anim chart-card">
+            <div class="chart-title">Blood Sugar Level</div>
+            <div class="chart-sub">Recent readings (last saved)</div>
+            <svg id="sugarChart" class="chart-svg" viewBox="0 0 520 190" role="img" aria-label="Blood sugar bar chart"></svg>
+            <div class="legend" aria-label="Sugar ranges legend">
+                <span class="legend-item"><i class="legend-swatch" style="background: rgba(239, 68, 68, 0.95); border-color: rgba(239, 68, 68, 0.35);"></i>Low</span>
+                <span class="legend-item"><i class="legend-swatch" style="background: rgba(16, 184, 166, 0.95); border-color: rgba(16, 184, 166, 0.35);"></i>Normal</span>
+                <span class="legend-item"><i class="legend-swatch" style="background: rgba(245, 158, 11, 0.95); border-color: rgba(245, 158, 11, 0.35);"></i>High</span>
+            </div>
+        </div>
+
+        <div class="card no-anim chart-card">
+            <div class="chart-title">Blood Pressure (BP)</div>
+            <div class="chart-sub">Systolic vs diastolic (last saved)</div>
+            <svg id="bpChart" class="chart-svg" viewBox="0 0 520 190" role="img" aria-label="Blood pressure grouped bar chart"></svg>
+            <div class="legend">
+                <span class="legend-item"><i class="legend-swatch" style="background: rgba(239, 68, 68, 0.95); border-color: rgba(239, 68, 68, 0.35);"></i>Low range</span>
+                <span class="legend-item"><i class="legend-swatch" style="background: rgba(16, 184, 166, 0.95); border-color: rgba(16, 184, 166, 0.35);"></i>Normal range</span>
+                <span class="legend-item"><i class="legend-swatch" style="background: rgba(245, 158, 11, 0.95); border-color: rgba(245, 158, 11, 0.35);"></i>High range</span>
+            </div>
+        </div>
+    </div>
+    <div class="actions" style="margin-top:0.8rem;">
+        <button id="editBtn" class="btn">Edit</button>
+        <button id="deleteBtn" class="btn btn-danger">Delete</button>
+    </div>
+    <p id="msg" class="muted"></p>
+    <div class="card no-anim" style="margin-top:0.8rem;">
+        <h3>Saved Health Info</h3>
+        <p id="savedView" class="muted">No saved info yet.</p>
+    </div>
+</div></main>
+<script src="{% static 'js/app.js' %}"></script><script>
+var s=requireUser();document.getElementById("logoutBtn").onclick=function(e){e.preventDefault();logout();};
+if (document.getElementById("userEmail")) document.getElementById("userEmail").textContent = s.email;
+var ids=["bloodGroup","allergies","chronic","medication","bloodSugar","bpSystolic","bpDiastolic","otherInfo","emergency"];
+var fields={};ids.forEach(function(k){fields[k]=document.getElementById(k);});
+var msgEl=document.getElementById("msg"),savedViewEl=document.getElementById("savedView");
+var saveBtn=document.getElementById("saveBtn"),editBtn=document.getElementById("editBtn"),deleteBtn=document.getElementById("deleteBtn");
+var formWrap=document.getElementById("formWrap");
+var map=load(STORE.HEALTH,{}),d=map[s.email]||null;
+var emergencyAlertInfo=document.getElementById("emergencyAlertInfo");
+var emergencyIconInfo=document.getElementById("emergencyIconInfo");
+var emergencyStatusTitleInfo=document.getElementById("emergencyStatusTitleInfo");
+var emergencyStatusTextInfo=document.getElementById("emergencyStatusTextInfo");
+var emergencyStatusSubInfo=document.getElementById("emergencyStatusSubInfo");
+function normalizePhone10(v) {
+    // Accept inputs like "9876543210", "987-654-3210", "987 654 3210".
+    // Returns '' if not exactly 10 digits.
+    var d = String(v || "").replace(/\D/g, "");
+    return d.length === 10 ? d : "";
+}
+function setReadOnly(v){
+    ids.forEach(function(k){
+        if (fields[k]) fields[k].disabled=v;
+    });
+}
+function showForm(v){formWrap.style.display=v?"block":"none";}
+// UI-only indicator: colors emergency status based on the saved emergency contact.
+function renderEmergencyStatus() {
+    var emRaw=(fields.emergency.value||"").trim();
+    var em=normalizePhone10(emRaw);
+    emergencyAlertInfo.classList.remove("alert--success","alert--warning","alert--danger");
+    if(!em){
+        emergencyAlertInfo.classList.add("alert--danger");
+        emergencyIconInfo.textContent="\u{1F6A8}";
+        emergencyStatusTitleInfo.textContent="Not ready";
+        emergencyStatusTextInfo.textContent="Add emergency contact";
+        emergencyStatusSubInfo.textContent="So we can reach you quickly.";
+        return;
+    }
+    if(!isValidPhone10(em)){
+        emergencyAlertInfo.classList.add("alert--warning");
+        emergencyIconInfo.textContent="\u26A0";
+        emergencyStatusTitleInfo.textContent="Needs review";
+        emergencyStatusTextInfo.textContent="Emergency contact looks invalid";
+        emergencyStatusSubInfo.textContent="Please update it to exactly 10 digits.";
+        return;
+    }
+    emergencyAlertInfo.classList.add("alert--success");
+    emergencyIconInfo.textContent="\u2705";
+    emergencyStatusTitleInfo.textContent="Ready";
+    emergencyStatusTextInfo.textContent="Emergency contact saved";
+    emergencyStatusSubInfo.textContent="You are set for quick outreach.";
+}
+function renderSaved(){
+    var x=map[s.email];
+    if(!x){savedViewEl.textContent="No saved info yet.";return;}
+    savedViewEl.innerHTML=
+    "Blood group: "+(x.bloodGroup||"")+"<br>"+
+    "Allergies: "+(x.allergies||"")+"<br>"+
+    "Chronic disease: "+(x.chronic||"")+"<br>"+
+    "Current medication: "+(x.medication||"")+"<br>"+
+    "Other info: "+(x.otherInfo||"")+"<br>"+
+    "Emergency contact: "+(x.emergency||"");
+}
+// If no saved info, show the form.
+// If emergency contact is missing/invalid, show the form so users can add it (instead of hiding behind Edit).
+var needsEmergency = !d || !normalizePhone10(d.emergency);
+if(d){
+    ids.forEach(function(k){fields[k].value=d[k]||"";});
+    // Normalize into input so the UI + validation are consistent.
+    if (fields.emergency) fields.emergency.value = normalizePhone10(fields.emergency.value);
+    setReadOnly(!needsEmergency);
+    showForm(needsEmergency);
+    // If emergency is present, keep the calm read-only view; otherwise allow editing.
+} else {
+    setReadOnly(false);
+    showForm(true);
+}
+renderEmergencyStatus();
+saveBtn.onclick=function(){
+    var emRaw=(fields.emergency.value||"").trim();
+    var em=normalizePhone10(emRaw);
+    if(emRaw && !em){msgEl.textContent="Emergency contact must be exactly 10 digits.";return;}
+    var nowIso = new Date().toISOString();
+    var existing = map[s.email] || {};
+
+    var sugarReadings = Array.isArray(existing.sugarReadings) ? existing.sugarReadings : [];
+    var bpReadings = Array.isArray(existing.bpReadings) ? existing.bpReadings : [];
+
+    // Append sugar reading (if provided).
+    var sugarStr = (fields.bloodSugar.value || "").trim();
+    if (sugarStr) {
+        var sugarVal = Number(sugarStr);
+        if (!isFinite(sugarVal)) { msgEl.textContent = "Blood sugar must be a valid number."; return; }
+        sugarReadings.push({ v: Math.round(sugarVal), at: nowIso });
+    }
+
+    // Append BP reading (if provided).
+    var sysStr = (fields.bpSystolic.value || "").trim();
+    var diaStr = (fields.bpDiastolic.value || "").trim();
+    if (sysStr || diaStr) {
+        if (!sysStr || !diaStr) { msgEl.textContent = "Enter both BP systolic and diastolic."; return; }
+        var sys = Number(sysStr), dia = Number(diaStr);
+        if (!isFinite(sys) || !isFinite(dia)) { msgEl.textContent = "BP values must be valid numbers."; return; }
+        bpReadings.push({ sys: Math.round(sys), dia: Math.round(dia), at: nowIso });
+    }
+
+    // Keep charts clean (last 7 sugar, last 6 BP).
+    sugarReadings = sugarReadings.slice(-7);
+    bpReadings = bpReadings.slice(-6);
+
+    map[s.email]={
+        bloodGroup:fields.bloodGroup.value,
+        allergies:fields.allergies.value,
+        chronic:fields.chronic.value,
+        medication:fields.medication.value,
+        otherInfo:fields.otherInfo.value,
+        emergency:em,
+        // Persist the latest inputs for convenience.
+        bloodSugar:fields.bloodSugar.value,
+        bpSystolic:fields.bpSystolic.value,
+        bpDiastolic:fields.bpDiastolic.value,
+        sugarReadings:sugarReadings,
+        bpReadings:bpReadings,
+        updatedAt:nowIso
+    };
+
+    save(STORE.HEALTH,map);
+    msgEl.textContent="Saved.";
+    // Keep the form open if emergency is still missing, so user can add it immediately.
+    if (em) {
+        setReadOnly(true);
+        showForm(false);
+    } else {
+        setReadOnly(false);
+        showForm(true);
+    }
+    renderSaved();
+    renderEmergencyStatus();
+    renderSugarChart();
+    renderBpChart();
+};
+editBtn.onclick=function(){setReadOnly(false);showForm(true);msgEl.textContent="Edit mode enabled.";};
+deleteBtn.onclick=function(){
+    if(!map[s.email])return;
+    delete map[s.email];
+    save(STORE.HEALTH,map);
+    ids.forEach(function(k){fields[k].value="";});
+    // Ensure normalization doesn't leave stale characters.
+    if (fields.emergency) fields.emergency.value = "";
+    setReadOnly(false);
+    showForm(true);
+    msgEl.textContent="Deleted.";
+    renderSaved();
+    renderEmergencyStatus();
+    renderSugarChart();
+    renderBpChart();
+};
+renderSaved();
+
+function hashStr(s) {
+    s = String(s || "");
+    var h = 2166136261;
+    for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+}
+function mulberry32(a) {
+    return function () {
+        var t = a += 0x6D2B79F5;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+}
+function safeNumber(x) { var n = Number(x); return isFinite(n) ? n : 0; }
+
+function renderSugarChart() {
+    var svg = document.getElementById("sugarChart");
+    if (!svg) return;
+    var w = 520, h = 190;
+    var left = 42, right = 10, top = 18, bottom = 38;
+    var chartW = w - left - right;
+    var chartH = h - top - bottom;
+    var minV = 50, maxV = 220;
+
+    var record = map[s.email] || {};
+    var sugar = Array.isArray(record.sugarReadings) ? record.sugarReadings.slice(-7) : [];
+
+    // If no history exists, optionally show the current input as a single bar.
+    if (!sugar.length) {
+        var cur = safeNumber((fields.bloodSugar && fields.bloodSugar.value) ? fields.bloodSugar.value : "");
+        if (cur > 0) sugar = [{ v: Math.round(cur) }];
+    }
+
+    if (!sugar.length) {
+        svg.innerHTML = "<text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='14' fill='rgba(155,176,204,0.95)'>No sugar readings yet</text>";
+        return;
+    }
+
+    function rangeColor(v) {
+        if (v < 70) return "rgba(239, 68, 68, 0.95)";   // low
+        if (v > 140) return "rgba(245, 158, 11, 0.95)"; // high
+        return "rgba(16, 184, 166, 0.95)";              // normal
+    }
+
+    var n = sugar.length;
+    var gap = 8;
+    var barW = (chartW - gap * (n - 1)) / n;
+    var bars = [];
+    for (var i = 0; i < n; i++) {
+        var x = left + i * (barW + gap);
+        var v = safeNumber(sugar[i].v);
+        var t = Math.min(1, Math.max(0, (v - minV) / (maxV - minV)));
+        var y = top + (1 - t) * chartH;
+        var bh = top + chartH - y;
+        var col = rangeColor(v);
+        bars.push(
+            "<rect x='" + x + "' y='" + y + "' width='" + barW + "' height='" + bh + "' rx='6' ry='6' fill='" + col + "'/>" +
+            "<text x='" + (x + barW / 2) + "' y='" + (y - 6) + "' text-anchor='middle' font-size='11' fill='rgba(234,244,255,0.92)'>" + v + "</text>"
+        );
+    }
+
+    // Normal range band: 70..140
+    var lowY = top + (1 - ((70 - minV) / (maxV - minV))) * chartH;
+    var highY = top + (1 - ((140 - minV) / (maxV - minV))) * chartH;
+    var guide = [
+        "<rect x='" + left + "' y='" + lowY + "' width='" + chartW + "' height='" + (highY - lowY) + "' fill='rgba(16,184,166,0.10)'/>",
+        "<line x1='" + left + "' y1='" + lowY + "' x2='" + (left + chartW) + "' y2='" + lowY + "' stroke='rgba(16,184,166,0.25)' stroke-width='1'/>",
+        "<line x1='" + left + "' y1='" + highY + "' x2='" + (left + chartW) + "' y2='" + highY + "' stroke='rgba(245,158,11,0.20)' stroke-width='1'/>"
+    ].join("");
+
+    svg.innerHTML =
+        "<rect x='0' y='0' width='" + w + "' height='" + h + "' fill='transparent'/>" +
+        guide +
+        bars.join("") +
+        "<text x='" + left + "' y='" + (h - 14) + "' font-size='12' fill='rgba(155,176,204,0.95)'>Recent</text>" +
+        "<text x='" + (left + chartW) + "' y='" + (h - 14) + "' font-size='12' text-anchor='end' fill='rgba(155,176,204,0.95)'>mg/dL</text>";
+}
+
+// BP grouped bar chart (systolic vs diastolic) rendered as SVG.
+function renderBpChart() {
+    var svg = document.getElementById("bpChart");
+    if (!svg) return;
+    var w = 520, h = 190;
+    var left = 42, right = 10, top = 18, bottom = 38;
+    var chartW = w - left - right;
+    var chartH = h - top - bottom;
+    var minV = 70, maxV = 180;
+
+    var record = map[s.email] || {};
+    var bp = Array.isArray(record.bpReadings) ? record.bpReadings.slice(-6) : [];
+
+    // If no history exists, use current input as a single group (if provided).
+    if (!bp.length) {
+        var sysCur = safeNumber((fields.bpSystolic && fields.bpSystolic.value) ? fields.bpSystolic.value : "");
+        var diaCur = safeNumber((fields.bpDiastolic && fields.bpDiastolic.value) ? fields.bpDiastolic.value : "");
+        if (sysCur > 0 && diaCur > 0) bp = [{ sys: Math.round(sysCur), dia: Math.round(diaCur) }];
+    }
+
+    if (!bp.length) {
+        svg.innerHTML = "<text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-size='14' fill='rgba(155,176,204,0.95)'>No BP readings yet</text>";
+        return;
+    }
+
+    function fillFor(v, kind) {
+        if (kind === "sys") {
+            if (v < 90) return "rgba(239, 68, 68, 0.95)";     // low
+            if (v > 120) return "rgba(245, 158, 11, 0.95)";  // high
+            return "rgba(16, 184, 166, 0.95)";               // normal
+        }
+        // dia
+        if (v < 60) return "rgba(239, 68, 68, 0.95)";         // low
+        if (v > 80) return "rgba(245, 158, 11, 0.95)";       // high
+        return "rgba(16, 184, 166, 0.95)";                   // normal
+    }
+
+    var n = bp.length;
+    var groupGap = 12;
+    var groupW = (chartW - groupGap * (n - 1)) / n;
+    var barGap = 6;
+    var barW = (groupW - barGap) / 2;
+    var elems = [];
+
+    for (var i = 0; i < n; i++) {
+        var x0 = left + i * (groupW + groupGap);
+        var sys = safeNumber(bp[i].sys);
+        var dia = safeNumber(bp[i].dia);
+
+        var sysT = Math.min(1, Math.max(0, (sys - minV) / (maxV - minV)));
+        var diaT = Math.min(1, Math.max(0, (dia - minV) / (maxV - minV)));
+        var sysY = top + (1 - sysT) * chartH;
+        var diaY = top + (1 - diaT) * chartH;
+        var sysH = top + chartH - sysY;
+        var diaH = top + chartH - diaY;
+
+        var sysCol = fillFor(sys, "sys");
+        var diaCol = fillFor(dia, "dia");
+
+        elems.push(
+            "<rect x='" + (x0) + "' y='" + sysY + "' width='" + barW + "' height='" + sysH + "' rx='6' ry='6' fill='" + sysCol + "' stroke='rgba(47,125,225,0.55)' stroke-width='2'/>" +
+            "<rect x='" + (x0 + barW + barGap) + "' y='" + diaY + "' width='" + barW + "' height='" + diaH + "' rx='6' ry='6' fill='" + diaCol + "' stroke='rgba(16,184,166,0.55)' stroke-width='2'/>"
+        );
+    }
+
+    svg.innerHTML =
+        "<text x='" + left + "' y='16' font-size='12' fill='rgba(155,176,204,0.95)'>Systolic</text>" +
+        "<text x='" + (left + chartW - 70) + "' y='16' font-size='12' fill='rgba(155,176,204,0.95)'>Diastolic</text>" +
+        elems.join("");
+}
+
+renderSugarChart();
+renderBpChart();
+
+</script>
+</body></html>
+

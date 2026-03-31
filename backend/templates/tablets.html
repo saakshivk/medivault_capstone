@@ -1,0 +1,251 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Tablet Record</title><link rel="stylesheet" href="{% static 'css/styles.css' %}"></head>
+<body class="dashboard-page">
+<aside class="sidebar"><nav class="sidebar-nav">
+    <a class="nav-item" href="dashboard.html"><span class="nav-icon" aria-hidden="true">&#127973;</span><span>Dashboard</span></a><a class="nav-item" href="records.html"><span class="nav-icon" aria-hidden="true">&#128450;</span><span>My Records</span></a><a class="nav-item" href="upload.html"><span class="nav-icon" aria-hidden="true">&#11014;</span><span>Upload Report</span></a><a class="nav-item" href="health-info.html"><span class="nav-icon" aria-hidden="true">&#129658;</span><span>Important health info</span></a><a class="nav-item active" href="tablets.html"><span class="nav-icon" aria-hidden="true">&#128138;</span><span>Tablet record</span></a><a class="nav-item" href="appointments.html"><span class="nav-icon" aria-hidden="true">&#128467;</span><span>Appointment remainder</span></a><a class="nav-item" href="profile.html"><span class="nav-icon" aria-hidden="true">&#128100;</span><span>Profile</span></a><a class="nav-item" href="#" id="logoutBtn"><span class="nav-icon" aria-hidden="true">&#128682;</span><span>Logout</span></a>
+</nav></aside>
+<header class="dashboard-header">
+    <div class="logo"><span class="logo-icon">&#9670;</span><span>MediVault</span></div>
+    <div class="header-actions">
+        <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Toggle navigation" aria-expanded="true">&#9776;</button>
+        <span class="header-user"><span class="user-icon" aria-hidden="true">&#128100;</span><span id="userEmail"></span></span>
+    </div>
+</header>
+<main class="dashboard-main"><div class="card">
+    <h1>Tablet Record</h1>
+    <p id="tabletReminderMsg" class="muted" style="margin-top:0.6rem;" aria-live="polite"></p>
+    <div class="gauge-wrap" style="margin-top:0.8rem; margin-bottom:1rem;">
+        <svg id="tabletGaugeSvg" class="gauge-svg" viewBox="0 0 240 140" role="img" aria-label="Tablets consumed and remaining gauge">
+            <path class="gauge-track" d="M 20 120 A 100 100 0 0 1 220 120"></path>
+            <path id="tabletGaugeArcPath" class="gauge-arc" d="M 20 120 A 100 100 0 0 1 220 120"></path>
+            <text x="120" y="98" text-anchor="middle" font-size="18" class="gauge-center" id="tabletGaugePercent">0%</text>
+            <text x="120" y="118" text-anchor="middle" font-size="12" class="gauge-subtext" id="tabletGaugeConsumedText">Consumed / Total</text>
+        </svg>
+        <div class="gauge-meta">
+            <div class="chart-title" style="margin-bottom:0;">Intake progress</div>
+            <div class="kpi" id="tabletGaugeKpi"></div>
+            <div class="muted" id="tabletGaugeHint">Based on your tracked daily intake.</div>
+            <div class="gauge-progressline" aria-hidden="true"><i id="tabletGaugeBar"></i></div>
+        </div>
+    </div>
+    <div class="row"><div><label>Tablet name</label><input id="name"></div><div><label>No. of tablets available</label><input id="stock" type="number" min="0"></div></div>
+    <label style="margin-top:0.6rem;">Tablets taken a day</label><input id="perDay" type="number" min="0">
+    <button class="btn btn-primary" id="addBtn" style="margin-top:0.8rem;">Add Tablet</button>
+    <p id="msg" class="muted" style="margin-top:0.5rem;"></p>
+    <table style="margin-top:0.8rem;"><thead><tr><th>Tablet</th><th>Stock</th><th>Per day</th><th>Reminder</th><th>Action</th></tr></thead><tbody id="tb"></tbody></table>
+    <div id="perTabletGauges" class="viz-grid" style="margin-top:1rem;"></div>
+</div></main>
+<script src="{% static 'js/app.js' %}"></script><script>
+var s=requireUser();document.getElementById("logoutBtn").onclick=function(e){e.preventDefault();logout();};
+if (document.getElementById("userEmail")) document.getElementById("userEmail").textContent = s.email;
+var map=load(STORE.TABLETS,{});map[s.email]=map[s.email]||[];var list=map[s.email];var today=new Date().toISOString();
+// Gauge data: track consumed based on actual stock reduction.
+// We persist a local `t.consumed` field so the gauge stays correct after ensureUsageCount updates `lastReducedOn`.
+var consumedTotal=0;
+list.forEach(function(t){
+    var perDay=Number(t.perDay||0);
+    var stockBefore=Number(t.stock||0);
+    var last=t.lastReducedOn || today;
+    var diff=daysBetween(today,last);
+    if (!isFinite(diff) || diff < 0) diff = 0;
+
+    var consumedSince = diff * perDay;
+    var consumedActual = Math.max(0, Math.min(stockBefore, consumedSince));
+    t.consumed = Number(t.consumed||0) + consumedActual;
+
+    ensureUsageCount(t,today);
+});
+
+var remainingTotal=0;
+list.forEach(function(t){ remainingTotal += Number(t.stock||0); consumedTotal += Number(t.consumed||0); });
+save(STORE.TABLETS,map);
+var nameEl=document.getElementById("name"),stockEl=document.getElementById("stock"),perDayEl=document.getElementById("perDay"),addBtnEl=document.getElementById("addBtn"),tbEl=document.getElementById("tb"),msgEl=document.getElementById("msg");
+var tabletReminderMsgEl = document.getElementById("tabletReminderMsg");
+var perTabletGaugesEl=document.getElementById("perTabletGauges");
+
+var TABLET_ALERT_STATE_KEY = "mv_tablet_alert_state";
+function tabletAlertStateLoad(){ return load(TABLET_ALERT_STATE_KEY, {}); }
+function tabletAlertStateSave(v){ save(TABLET_ALERT_STATE_KEY, v); }
+function tabletMarkFired(tabletId){
+    var st = tabletAlertStateLoad();
+    if(!st[tabletId]) st[tabletId] = {};
+    st[tabletId]["24h"] = true;
+    tabletAlertStateSave(st);
+}
+function tabletIsFired(tabletId){
+    var st = tabletAlertStateLoad();
+    return !!(st[tabletId] && st[tabletId]["24h"]);
+}
+function notifyTablet(message){
+    if(tabletReminderMsgEl) tabletReminderMsgEl.textContent = message;
+    try{
+        if("Notification" in window && Notification.permission === "granted"){
+            new Notification("MediVault Tablet Reminder", { body: message });
+            return;
+        }
+        if("Notification" in window && Notification.permission === "default"){
+            Notification.requestPermission().then(function(p){
+                if(p === "granted"){
+                    new Notification("MediVault Tablet Reminder", { body: message });
+                } else {
+                    window.alert(message);
+                }
+            });
+            return;
+        }
+    }catch(e){}
+    window.alert(message);
+}
+
+function runTabletAlerts(){
+    var nowMs = Date.now();
+    var WINDOW_MS = 2 * 60 * 1000; // 2-minute tolerance
+    list.forEach(function(t){
+        var tabletId = String(t.id || "");
+        if(!tabletId) return;
+        if(tabletIsFired(tabletId)) return;
+        var perDay = Number(t.perDay || 0);
+        var stock = Number(t.stock || 0);
+        if(!(perDay > 0) || !(stock >= 0)) return;
+        if(stock <= 0) return;
+
+        // LastReducedOn is persisted by ensureUsageCount and represents the last day boundary used.
+        var start = new Date(t.lastReducedOn || today);
+        if(isNaN(start.getTime())) return;
+        start.setHours(0,0,0,0);
+
+        var daysToEnd = Math.ceil(stock / perDay);
+        if(!(daysToEnd > 0)) return;
+
+        var endDate = new Date(start);
+        endDate.setDate(endDate.getDate() + daysToEnd);
+        endDate.setHours(0,0,0,0);
+        var endMs = endDate.getTime();
+
+        // Reminder is 24 hours before the counter hits 0 (time fixed at 12:00 AM).
+        var reminderMs = endMs - 24 * 3600000;
+        if(nowMs >= reminderMs && nowMs < reminderMs + WINDOW_MS){
+            tabletMarkFired(tabletId);
+            var remText = "Remainder: tablet intake ends on " + endDate.toLocaleDateString() + " at 12:00 AM.";
+            notifyTablet(remText);
+        }
+    });
+}
+
+function renderGauge(consumed, remaining) {
+    var total=Number(consumed)+Number(remaining);
+    if (!isFinite(total) || total <= 0) total = 1;
+    var progress=Number(consumed)/total;
+    var consumedRatio=progress;
+
+    var path=document.getElementById("tabletGaugeArcPath");
+    if (path && path.getTotalLength) {
+        var length=path.getTotalLength();
+        path.style.strokeDasharray=String(length);
+        path.style.strokeDashoffset=String(length); // start at 0
+        // animate after layout
+        setTimeout(function(){
+            var nextOffset=length*(1-progress);
+            path.style.strokeDashoffset=String(nextOffset);
+        }, 30);
+    }
+
+    var arcColor="var(--accent)";
+    if (consumedRatio < 0.5) arcColor="rgba(34,197,94,0.95)";       // safe
+    else if (consumedRatio < 0.8) arcColor="rgba(245,158,11,0.95)";  // caution
+    else arcColor="rgba(239,68,68,0.95)";                           // alert
+    if (path) path.style.stroke=arcColor;
+
+    var percentEl=document.getElementById("tabletGaugePercent");
+    var kpiEl=document.getElementById("tabletGaugeKpi");
+    var consumedTextEl=document.getElementById("tabletGaugeConsumedText");
+    var barEl=document.getElementById("tabletGaugeBar");
+    if (percentEl) percentEl.textContent=Math.round(progress*100) + "%";
+    if (kpiEl) kpiEl.textContent="Consumed " + Math.round(consumed) + " / " + Math.round(total);
+    if (consumedTextEl) consumedTextEl.textContent=Math.round(consumed) + " / " + Math.round(total);
+    if (barEl) barEl.style.width=Math.max(0, Math.min(100, progress*100)) + "%";
+}
+function renderPerTabletGauges(){
+    if(!perTabletGaugesEl) return;
+    perTabletGaugesEl.innerHTML="";
+    if(!list.length){
+        perTabletGaugesEl.innerHTML="<div class='muted' style='grid-column:1 / -1; font-weight:750;'>No tablet gauges yet.</div>";
+        return;
+    }
+    list.forEach(function(t, idx){
+        var consumed=Number(t.consumed||0);
+        var remaining=Number(t.stock||0);
+        var total=consumed+remaining;
+        if(!isFinite(total) || total<=0) total=1;
+        var progress=consumed/total;
+        var arcColor="var(--accent)";
+        if(progress < 0.5) arcColor="rgba(34,197,94,0.95)";
+        else if(progress < 0.8) arcColor="rgba(245,158,11,0.95)";
+        else arcColor="rgba(239,68,68,0.95)";
+
+        var percent=Math.round(progress*100);
+        perTabletGaugesEl.insertAdjacentHTML("beforeend",
+            "<div class='card no-anim chart-card'>" +
+            "<div class='chart-title' style='margin-bottom:0.25rem; font-size:1rem;'>" + (t.name||"Tablet") + "</div>" +
+            "<div class='chart-sub' style='margin-top:0.1rem; margin-bottom:0.35rem;'>Consumed / Total</div>" +
+            "<svg class='gauge-svg' viewBox='0 0 240 140' role='img' aria-label='Tablet intake gauge'>" +
+            "<path class='gauge-track' d='M 20 120 A 100 100 0 0 1 220 120'></path>" +
+            "<path class='gauge-arc' data-progress='" + progress + "' style='stroke:" + arcColor + "' d='M 20 120 A 100 100 0 0 1 220 120'></path>" +
+            "<text x='120' y='98' text-anchor='middle' font-size='18' class='gauge-center'>" + percent + "%</text>" +
+            "<text x='120' y='118' text-anchor='middle' font-size='11' class='gauge-subtext'>" + Math.round(consumed) + " / " + Math.round(total) + "</text>" +
+            "</svg>" +
+            "</div>"
+        );
+    });
+
+    // Animate arcs after DOM is painted.
+    var arcs=perTabletGaugesEl.querySelectorAll("path.gauge-arc[data-progress]");
+    arcs.forEach(function(arc){
+        var progress=Number(arc.getAttribute("data-progress")||0);
+        if(!(arc.getTotalLength)) return;
+        var length=arc.getTotalLength();
+        arc.style.strokeDasharray=String(length);
+        arc.style.strokeDashoffset=String(length);
+        setTimeout(function(){
+            var nextOffset=length*(1-progress);
+            arc.style.strokeDashoffset=String(nextOffset);
+        }, 40);
+    });
+}
+function recalcGaugeTotals() {
+    consumedTotal = 0;
+    remainingTotal = 0;
+    list.forEach(function(t){
+        consumedTotal += Number(t.consumed||0);
+        remainingTotal += Number(t.stock||0);
+    });
+}
+function rem(t){if(!t.perDay)return "No daily intake set";var days=Math.ceil(t.stock/Number(t.perDay));if(t.stock===0)return "Tablets ended";if(days<=2)return "Reminder: tablets are about to end";return days+" day(s) left";}
+function render(){
+    tbEl.innerHTML="";
+    if(!list.length){
+        tbEl.innerHTML="<tr><td colspan='5' class='muted'>No tablets.</td></tr>";
+        return;
+    }
+    list.forEach(function(t){var tr=document.createElement("tr");tr.innerHTML="<td>"+(t.name||"")+"</td><td>"+t.stock+"</td><td>"+t.perDay+"</td><td>"+rem(t)+"</td>";var td=document.createElement("td");var b=document.createElement("button");b.className="btn btn-danger";b.textContent="Remove tablet";b.onclick=function(){list=list.filter(function(x){return x.id!==t.id;});map[s.email]=list;save(STORE.TABLETS,map);render();};td.appendChild(b);tr.appendChild(td);tbEl.appendChild(tr);});
+    recalcGaugeTotals();
+    renderGauge(consumedTotal, remainingTotal);
+    renderPerTabletGauges();
+}
+addBtnEl.onclick=function(){
+    msgEl.textContent="";
+    var n=nameEl.value.trim(),stock=Number(stockEl.value||0),perDay=Number(perDayEl.value||0);
+    if(!n){msgEl.textContent="Tablet name is required.";return;}
+    if(stock<0||perDay<0){msgEl.textContent="Stock and tablets per day cannot be negative.";return;}
+    list.push({id:Date.now()+"",name:n,stock:stock,perDay:perDay,lastReducedOn:today,consumed:0});map[s.email]=list;save(STORE.TABLETS,map);nameEl.value="";stockEl.value="";perDayEl.value="";msgEl.textContent="Tablet record saved.";render();
+};
+render();
+
+renderPerTabletGauges();
+runTabletAlerts();
+setInterval(runTabletAlerts, 30000);
+</script>
+</body></html>
+

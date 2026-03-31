@@ -1,0 +1,35 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MediVault</title>
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+
+<body class="landing-page">
+    <div class="landing-bg" aria-hidden="true">
+        <span class="blob blob-a"></span>
+        <span class="blob blob-b"></span>
+        <span class="blob blob-c"></span>
+    </div>
+    <main class="landing-shell">
+        <section class="landing-card">
+            <div class="landing-top">
+                <h1 class="landing-title">MediVault</h1>
+            </div>
+            <div class="landing-bottom">
+                <p class="landing-tagline">Carry your medical history without carrying anything.</p>
+                <p class="landing-desc">your health data is always with you when it matters most</p>
+            </div>
+        </section>
+        <div class="landing-actions">
+            <a class="btn btn-primary" href="login.html">Log in</a>
+            <a class="btn" href="register.html">Sign Up</a>
+        </div>
+    </main>
+</body>
+
+</html>

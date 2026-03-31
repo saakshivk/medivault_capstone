@@ -1,0 +1,177 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Profile</title><link rel="stylesheet" href="{% static 'css/styles.css' %}"></head>
+<body class="dashboard-page">
+<aside class="sidebar"><nav class="sidebar-nav">
+    <a class="nav-item" href="dashboard.html"><span class="nav-icon" aria-hidden="true">&#127973;</span><span>Dashboard</span></a><a class="nav-item" href="records.html"><span class="nav-icon" aria-hidden="true">&#128450;</span><span>My Records</span></a><a class="nav-item" href="upload.html"><span class="nav-icon" aria-hidden="true">&#11014;</span><span>Upload Medical Report</span></a><a class="nav-item" href="health-info.html"><span class="nav-icon" aria-hidden="true">&#129658;</span><span>Important Health Information</span></a><a class="nav-item" href="tablets.html"><span class="nav-icon" aria-hidden="true">&#128138;</span><span>Tablet Records</span></a><a class="nav-item" href="appointments.html"><span class="nav-icon" aria-hidden="true">&#128467;</span><span>Appointment Reminders</span></a><a class="nav-item active" href="profile.html"><span class="nav-icon" aria-hidden="true">&#128100;</span><span>Profile</span></a><a class="nav-item" href="#" id="logoutBtn"><span class="nav-icon" aria-hidden="true">&#128682;</span><span>Logout</span></a>
+</nav></aside>
+<header class="dashboard-header">
+    <div class="logo"><span class="logo-icon">&#9670;</span><span>MediVault</span></div>
+    <div class="header-actions">
+        <button id="sidebarToggle" class="sidebar-toggle" type="button" aria-label="Toggle navigation" aria-expanded="true">&#9776;</button>
+        <span class="header-user"><span class="user-icon" aria-hidden="true">&#128100;</span><span id="userEmail"></span></span>
+    </div>
+</header>
+<main class="dashboard-main"><div class="card profile-shell">
+    <div class="profile-head">
+        <div class="profile-avatar" aria-hidden="true">&#128100;</div>
+        <div>
+            <h1>Profile Settings</h1>
+            <p class="muted">Manage your account and contact information.</p>
+        </div>
+    </div>
+    <div class="profile-list" role="navigation" aria-label="Profile sections">
+        <button class="profile-row profile-row-btn" type="button" data-panel="panel-account" aria-expanded="false">
+            <span>&#127991;</span><span>Account Information</span><span class="profile-arrow">&#8250;</span>
+        </button>
+        <button class="profile-row profile-row-btn" type="button" data-panel="panel-contact" aria-expanded="true">
+            <span>&#128241;</span><span>Contact Information</span><span class="profile-arrow">&#8250;</span>
+        </button>
+        <button class="profile-row profile-row-btn" type="button" data-panel="panel-mail" aria-expanded="false">
+            <span>&#9993;</span><span>Mail</span><span class="profile-arrow">&#8250;</span>
+        </button>
+        <button class="profile-row profile-row-btn" type="button" data-panel="panel-blood" aria-expanded="false">
+            <span>&#129656;</span><span>Blood Group</span><span class="profile-arrow">&#8250;</span>
+        </button>
+        <button class="profile-row profile-row-btn" type="button" data-panel="panel-emergency" aria-expanded="false">
+            <span>&#128680;</span><span>Emergency Contact Information</span><span class="profile-arrow">&#8250;</span>
+        </button>
+    </div>
+
+    <div id="panel-contact" class="profile-panel is-open">
+        <div class="card no-anim" style="margin-top:0.9rem;">
+            <h3>Saved Contact</h3>
+            <p id="contactViewPhone" class="muted"></p>
+        </div>
+
+        <div id="formWrap" style="margin-top:0.9rem;">
+            <div class="row">
+                <div><label>Patient Name</label><input id="fullname" pattern="[A-Za-z ]+" title="Use alphabets and spaces only"></div>
+                <div><label>Patient ID</label><input id="pid" disabled></div>
+            </div>
+            <label style="margin-top:0.6rem;">Email Address</label><input id="email" disabled>
+            <label style="margin-top:0.6rem;">Age</label><input id="age" type="number" min="1" max="120" placeholder="Enter age">
+            <label style="margin-top:0.6rem;">Mobile Number</label><input id="phone" placeholder="10 digits">
+            <button class="btn btn-primary" id="saveBtn" style="margin-top:0.8rem;">Save Profile</button>
+            <p id="msg" class="muted"></p>
+        </div>
+
+        <div class="actions" style="margin-top:0.6rem;">
+            <button class="btn" id="editBtn">Edit</button>
+        </div>
+    </div>
+
+    <div id="panel-account" class="profile-panel">
+        <div class="card no-anim" style="margin-top:0.9rem;">
+            <h3>Saved Profile</h3>
+            <p id="savedProfile" class="muted"></p>
+        </div>
+    </div>
+
+    <div id="panel-mail" class="profile-panel">
+        <div class="card no-anim" style="margin-top:0.9rem;">
+            <h3>Email</h3>
+            <p id="mailViewEmail" class="muted"></p>
+        </div>
+    </div>
+
+    <div id="panel-blood" class="profile-panel">
+        <div class="card no-anim" style="margin-top:0.9rem;">
+            <h3>Blood Group</h3>
+            <p id="bloodGroupView" class="muted"></p>
+        </div>
+    </div>
+
+    <div id="panel-emergency" class="profile-panel">
+        <div class="card no-anim" style="margin-top:0.9rem;">
+            <h3>Emergency Contact</h3>
+            <p id="emergencyContactView" class="muted"></p>
+        </div>
+    </div>
+</div></main>
+<script src="{% static 'js/app.js' %}"></script><script>
+var s=requireUser();document.getElementById("logoutBtn").onclick=function(e){e.preventDefault();logout();};
+if (document.getElementById("userEmail")) document.getElementById("userEmail").textContent = s.email;
+var profiles=load(STORE.PROFILES,{});var p=profiles[s.email]||{patientId:patientId(s.email),fullname:s.fullname||""};profiles[s.email]=p;save(STORE.PROFILES,profiles);
+var fullnameEl=document.getElementById("fullname"),pidEl=document.getElementById("pid"),emailEl=document.getElementById("email"),ageEl=document.getElementById("age"),phoneEl=document.getElementById("phone"),saveBtnEl=document.getElementById("saveBtn"),editBtnEl=document.getElementById("editBtn"),msgEl=document.getElementById("msg"),savedProfileEl=document.getElementById("savedProfile"),formWrap=document.getElementById("formWrap");
+var contactViewPhoneEl=document.getElementById("contactViewPhone");
+var mailViewEmailEl=document.getElementById("mailViewEmail");
+var bloodGroupViewEl=document.getElementById("bloodGroupView");
+var emergencyContactViewEl=document.getElementById("emergencyContactView");
+
+var healthMap = load(STORE.HEALTH, {});
+var h = healthMap[s.email] || {};
+fullnameEl.addEventListener("input", function () {
+    fullnameEl.value = fullnameEl.value.replace(/[^A-Za-z\s]/g, "");
+});
+
+function setEdit(v){
+    fullnameEl.disabled=!v;
+    ageEl.disabled=!v;
+    phoneEl.disabled=!v;
+    formWrap.style.display=v?"block":"none";
+    if(contactViewPhoneEl) contactViewPhoneEl.style.display=v?"none":"block";
+}
+function renderSaved(){
+    savedProfileEl.innerHTML="Full Name: "+(p.fullname||"")+"<br>Email: "+s.email+"<br>Age: "+((p.age||p.age===0)?p.age:"")+"<br>Mobile Number: "+(p.phone||"")+"<br>Patient ID: "+(p.patientId||"");
+    if(contactViewPhoneEl) contactViewPhoneEl.textContent = (p.phone||"");
+}
+fullnameEl.value=p.fullname||"";pidEl.value=p.patientId;emailEl.value=s.email;ageEl.value=(p.age||p.age===0)?p.age:"";phoneEl.value=p.phone||"";
+if(p.phone){setEdit(false);} else {setEdit(true);}
+renderSaved();
+if(mailViewEmailEl) mailViewEmailEl.textContent = s.email || "";
+if(bloodGroupViewEl) bloodGroupViewEl.textContent = (h.bloodGroup||"");
+if(emergencyContactViewEl) emergencyContactViewEl.textContent = (h.emergency||"");
+
+var panelBtns = Array.prototype.slice.call(document.querySelectorAll(".profile-row-btn[data-panel]"));
+var panels = Array.prototype.slice.call(document.querySelectorAll(".profile-panel"));
+function openPanel(panelId){
+    panels.forEach(function(el){ el.classList.remove("is-open"); });
+    var active = document.getElementById(panelId);
+    if(active) active.classList.add("is-open");
+    panelBtns.forEach(function(b){
+        var isActive = b.getAttribute("data-panel") === panelId;
+        b.setAttribute("aria-expanded", isActive ? "true" : "false");
+    });
+    if(panelId === "panel-contact"){
+        var needsEdit = !p.phone;
+        setEdit(needsEdit);
+        msgEl.textContent = "";
+    } else {
+        setEdit(false);
+        msgEl.textContent = "";
+    }
+}
+panelBtns.forEach(function(btn){
+    btn.addEventListener("click", function(){
+        openPanel(btn.getAttribute("data-panel"));
+    });
+});
+saveBtnEl.onclick=function(){
+    var name = fullnameEl.value.trim();
+    if (!name) { msgEl.textContent = "Name is required."; return; }
+    if (!isAlphabeticName(name)) { msgEl.textContent = "Name must contain only alphabets and spaces."; return; }
+    var ageRaw = String(ageEl.value || "").trim();
+    if (!ageRaw) { msgEl.textContent = "Age is required."; return; }
+    if (!/^\d+$/.test(ageRaw)) { msgEl.textContent = "Age must be a valid number."; return; }
+    var age = Number(ageRaw);
+    if (age < 1 || age > 120) { msgEl.textContent = "Age must be between 1 and 120."; return; }
+    var phRaw=phoneEl.value.trim();
+    var phDigits=String(phRaw||"").replace(/\D/g,"");
+    if(phDigits && phDigits.length !== 10){msgEl.textContent="Phone number must be exactly 10 digits.";return;}
+    // Persist normalized digits (matches existing validation rules).
+    phoneEl.value = phDigits;
+    p.fullname=name;
+    p.age=age;
+    p.phone=phDigits;
+    profiles[s.email]=p;
+    save(STORE.PROFILES,profiles);
+    msgEl.textContent="Profile saved.";
+    setEdit(false);
+    renderSaved();
+};
+editBtnEl.onclick=function(){setEdit(true);msgEl.textContent="Edit mode enabled.";};
+</script>
+</body></html>
+
